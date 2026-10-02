@@ -1,0 +1,25 @@
+description: Ultralytics b model trained on /content/dataset/data.yaml
+author: Ultralytics
+date: '2026-08-29T21:42:52.692622+07:00'
+version: 8.4.107
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: detect
+head: Detect
+batch: 1
+imgsz:
+- 320
+- 320
+names:
+  0: eye_closed
+  1: eye_open
+  2: head_dropped
+  3: head_straight
+  4: no_yawn
+  5: yawn
+args:
+  batch: 1
+  quantize: 16
+channels: 3
+end2end: false
