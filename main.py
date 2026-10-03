@@ -15,10 +15,12 @@ from gpiozero import Buzzer, Button
 from sdcard import WriteLog, EventLog
 from ld2451 import LD2451read,radar_thread
 
-buzzer = Buzzer(17)
+buzzer = Buzzer(27)
 buzzer.off()
 button = Button(26,pull_up=True, hold_time=2)
 
+drowsiness_alarm = False
+obstacle_alarm = False
 app = Flask(__name__)
 socketio = SocketIO(
     app,
@@ -29,7 +31,7 @@ shared_data = {
     "lat": None,
     "lon": None,
     "speed": None,
-    "is_closed": False,
+    "drowsiness_alarm": False,
     "pitch": 0.0,
     "roll": 0.0,
     "gyro": None,
@@ -148,7 +150,7 @@ def main():
                         round(gyro[2] * 180 / math.pi, 3)
                     )
                 if minute % 15 == 0 and second == 0:
-                    WriteLog(year, month, day, hour, minute, second, lat, lon, speed, False, roll, pitch, gyro)
+                    WriteLog(year, month, day, hour, minute, second, lat, lon, speed, drowsiness_alarm, roll, pitch, gyro)
                 warning = False
                 if distance is not None and speed is not None and speed > 0:
                     if speed <= 60 and distance <= 35:
@@ -159,13 +161,48 @@ def main():
                         warning = True
                     elif speed <= 120 and distance <= 100:
                         warning = True
-
+                if is_closed or is_down or is_yawn or warning:
+                    if is_closed or is_down or is_yawn:
+                        if drowsiness_time is None:
+                            drowsiness_time = time.monotonic()
+                        if time.monotonic() - drowsiness_time >= 5:
+                            drowsiness_alarm = True
+                    else:
+                        drowsiness_time = None
+                        drowsiness_alarm = False
+                    if warning:
+                        if obstacle_time is None:
+                            obstacle_time = time.monotonic()
+                        if time.monotonic() - obstacle_time >= 5:
+                            obstacle_alarm = True
+                    else:
+                        obstacle_time = None
+                        obstacle_alarm = False
+                else:
+                    drowsiness_alarm = False
+                    obstacle_alarm = False
+                    drowsiness_time = None
+                    obstacle_time = None
+                if drowsiness_alarm or obstacle_alarm:
+                    buzzer.on()
+                    buzzer_active = True
+                    buzzer_time = time.monotonic()
+                else:
+                    buzzer.off()
+                    buzzer_active = False
+                    buzzer_time = None
+                if buzzer_active and time.monotonic() - buzzer_time >= 10:
+                    if drowsiness_alarm:
+                        EventLog(year, month, day, hour, minute, second, lat, lon, speed, "Drowsy", roll, pitch, gyro)
+                    if obstacle_alarm:
+                        EventLog(year, month, day, hour, minute, second, lat, lon, speed, "Obstacle", roll, pitch, gyro)
                 with shared_data_lock:
                     shared_data.update({
                         "lat": lat,
                         "lon": lon,
                         "speed": speed,
-                        "is_sleep": warning,
+                        "is_drowsy": drowsiness_alarm,
+                        "is_obstacle": obstacle_alarm,
                         "pitch": pitch,
                         "roll": roll,
                         "gyro": gyro,
@@ -187,16 +224,24 @@ def main():
                 time.sleep(1)
         except KeyboardInterrupt:
             print("Keyboard interrupt received. Shutting down...")
+            ai_stop_event.set()
+            break
 if __name__ == "__main__":
     ai_thread = threading.Thread(
         target=ai_dect_loop,
         daemon=True
     )
-    ai_thread.start()
     radar_worker = threading.Thread(
         target=radar_thread,
         daemon=True
     )
-
+    flask_thread = threading.Thread(
+        target=run_flask,
+        daemon=True
+    )
+    ai_thread.start()
     radar_worker.start()
+    flask_thread.start()
+
     main()
+
