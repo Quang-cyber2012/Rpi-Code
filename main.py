@@ -15,7 +15,7 @@ from gpiozero import Buzzer, Button
 from sdcard import WriteLog, EventLog
 from ld2451 import LD2451read,radar_thread
 
-buzzer = Buzzer(17)
+buzzer = Buzzer(27)
 buzzer.off()
 button = Button(26,pull_up=True, hold_time=2)
 
@@ -110,6 +110,11 @@ def ai_dect_loop():
     CameraStop()
     print("AI stopped.")
 def main():
+    drowsiness_time = None
+    obstacle_time = None
+    buzzer_active = False
+    buzzer_timeout = False
+    buzzer_time = None
     while True:
         try:
                 if button.is_pressed:
