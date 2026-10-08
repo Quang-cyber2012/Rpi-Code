@@ -15,7 +15,7 @@ from gpiozero import Buzzer, Button
 from sdcard import WriteLog, EventLog
 from ld2451 import LD2451read,radar_thread
 
-buzzer = Buzzer(17)
+buzzer = Buzzer(27)
 buzzer.off()
 button = Button(26,pull_up=True, hold_time=2)
 
@@ -161,66 +161,53 @@ def main():
                         warning = True
                     elif speed <= 120 and distance <= 100:
                         warning = True
-                if is_closed or is_down or is_yawn:
-                    if drowsiness_time is None:
-                        drowsiness_time = time.monotonic()
-
-                    if not drowsiness_alarm and time.monotonic() - drowsiness_time >= 5:
-                        drowsiness_alarm = True
+                if is_closed or is_down or is_yawn or warning:
+                    if is_closed or is_down or is_yawn:
+                        if drowsiness_time is None:
+                            drowsiness_time = time.monotonic()
+                        if time.monotonic() - drowsiness_time >= 5:
+                            drowsiness_alarm = True
+                    else:
+                        drowsiness_time = None
+                        drowsiness_alarm = False
+                    if warning:
+                        if obstacle_time is None:
+                            obstacle_time = time.monotonic()
+                        if time.monotonic() - obstacle_time >= 5:
+                            obstacle_alarm = True
+                    else:
+                        obstacle_time = None
+                        obstacle_alarm = False
                 else:
-                    drowsiness_time = None
                     drowsiness_alarm = False
-                if warning:
-                    if obstacle_time is None:
-                        obstacle_time = time.monotonic()
-
-                    if not obstacle_alarm and time.monotonic() - obstacle_time >= 5:
-                        obstacle_alarm = True
-                else:
-                    obstacle_time = None
                     obstacle_alarm = False
+                    drowsiness_time = None
+                    obstacle_time = None
                 if drowsiness_alarm or obstacle_alarm:
-                    if not buzzer_active and not buzzer_timeout:
-                        buzzer.on()
-                        buzzer_active = True
-                        buzzer_time = time.monotonic()
-                    if (
-                        buzzer_active
-                        and buzzer_time is not None
-                        and time.monotonic() - buzzer_time >= 10
-                    ):
-                        buzzer.off()
-                        buzzer_active = False
-                        buzzer_timeout = True
-
-                        if drowsiness_alarm:
-                            EventLog("Drowsy",year, month, day, hour, minute, second)
-                        if obstacle_alarm:
-                            EventLog("Obstacle",year, month, day, hour, minute, second)
-                            buzzer_time = None
+                    buzzer.on()
+                    buzzer_active = True
+                    buzzer_time = time.monotonic()
                 else:
-                    # Danger condition has completely disappeared
-                    if buzzer_active:
-                        buzzer.off()
-
+                    buzzer.off()
                     buzzer_active = False
-                    buzzer_timeout = False
                     buzzer_time = None
-
-                    drowsiness_alarm = False
-                    obstacle_alarm = False
-                    drowsiness_time = None
-                    obstacle_time = None
+                if buzzer_active and time.monotonic() - buzzer_time >= 10:
+                    if drowsiness_alarm:
+                        EventLog(year, month, day, hour, minute, second, lat, lon, speed, "Drowsy", roll, pitch, gyro)
+                    if obstacle_alarm:
+                        EventLog(year, month, day, hour, minute, second, lat, lon, speed, "Obstacle", roll, pitch, gyro)
                 with shared_data_lock:
                     shared_data.update({
                         "lat": lat,
                         "lon": lon,
                         "speed": speed,
                         "is_drowsy": drowsiness_alarm,
+                        "is_obstacle": obstacle_alarm,
                         "pitch": pitch,
                         "roll": roll,
                         "gyro": gyro,
                         "time": f"{year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}",
+                        "distance": distance
                     })
                     data_to_emit = shared_data.copy()
                 try:
@@ -257,3 +244,4 @@ if __name__ == "__main__":
     flask_thread.start()
 
     main()
+

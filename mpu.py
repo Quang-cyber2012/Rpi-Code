@@ -34,4 +34,8 @@ def MPUread():
     except Exception as e:
         print(f"MPU6050 Error: {e}")
         return None, None
-print(MPUread())
+if __name__ == "__main__":
+   print(MPUread())
+   print(MPUread())
+   print(MPUread())
+   print(MPUread())
