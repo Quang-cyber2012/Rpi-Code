@@ -39,3 +39,4 @@ if __name__ == "__main__":
    print(MPUread())
    print(MPUread())
    print(MPUread())
+   print(MPUread())

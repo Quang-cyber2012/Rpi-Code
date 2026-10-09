@@ -172,6 +172,7 @@ def main():
 
                     if not drowsiness_alarm and time.monotonic() - drowsiness_time >= 5:
                         drowsiness_alarm = True
+                        print("Buzzer On")
                 else:
                     drowsiness_time = None
                     drowsiness_alarm = False

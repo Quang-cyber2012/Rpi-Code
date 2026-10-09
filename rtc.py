@@ -1,3 +1,4 @@
+import time
 from i2c import i2c
 import adafruit_ds3231
 
@@ -19,4 +20,13 @@ def RTCread():
     except Exception as e:
         print(f"RTC Error: {e}")
         return None, None, None, None, None, None
-print(RTCread())
+if __name__ == "__main__":
+   print(RTCread())
+   time.sleep(5)
+   print(RTCread())
+   time.sleep(5)
+   print(RTCread())
+   time.sleep(5)
+   print(RTCread())
+   time.sleep(5)
+   print(RTCread())
