@@ -1,3 +1,4 @@
+DEBUG = False
 import math
 import os
 import time
@@ -86,21 +87,17 @@ def ai_dect_loop():
             frame = PrepareFrame(frame)
 
             result = Analyze_Frame(frame)
-            print(
-                f"[AI] "
-                f"eye={result['eye']} "
-                f"head={result['head']} "
-                f"yawn={result['yawn']}"
-            )
+            if DEBUG:
+                print(
+                    f"[AI] "
+                    f"eye={result['eye']} "
+                    f"head={result['head']} "
+                    f"yawn={result['yawn']}"
+                )
             with ai_state_lock:
-                if result["eye"] is not None:
-                    ai_state["is_closed"] = result["eye"]
-
-                if result["head"] is not None:
-                    ai_state["is_down"] = result["head"]
-
-                if result["yawn"] is not None:
-                    ai_state["is_yawn"] = result["yawn"]
+                ai_state["is_closed"] = result["eye"]
+                ai_state["is_down"] = result["head"]
+                ai_state["is_yawn"] = result["yawn"]
         except Exception as e:
             if ai_stop_event.is_set():
                 break
@@ -110,11 +107,10 @@ def ai_dect_loop():
     CameraStop()
     print("AI stopped.")
 def main():
-    drowsiness_time = None
-    obstacle_time = None
-    buzzer_active = False
-    buzzer_timeout = False
-    buzzer_time = None
+    count_cond = None
+    drowsiness_alarm = False
+    drowsy_logged = False
+    obstacle_logged = False
     while True:
         try:
                 if button.is_pressed:
@@ -155,7 +151,7 @@ def main():
                         round(gyro[2] * 180 / math.pi, 3)
                     )
                 if minute % 15 == 0 and second == 0:
-                    WriteLog(year, month, day, hour, minute, second, lat, lon, speed, drowsiness_alarm, roll, pitch, gyro)
+                    WriteLog(year, month, day, hour, minute, second, lat, lon, speed, drowsiness_alarm, roll, pitch, gyro) 
                 warning = False
                 if distance is not None and speed is not None and speed > 0:
                     if speed <= 60 and distance <= 35:
@@ -166,57 +162,44 @@ def main():
                         warning = True
                     elif speed <= 120 and distance <= 100:
                         warning = True
-                if is_closed or is_down or is_yawn:
-                    if drowsiness_time is None:
-                        drowsiness_time = time.monotonic()
+                drowsy_cond = is_closed or is_down or is_yawn
+                if drowsy_cond:
+                    if count_cond is None:
+                        count_cond = time.monotonic()
+                        print("[DEBUG] Drowsiness timer started")
 
-                    if not drowsiness_alarm and time.monotonic() - drowsiness_time >= 5:
-                        drowsiness_alarm = True
-                        print("Buzzer On")
-                else:
-                    drowsiness_time = None
+                    elapsed = time.monotonic() - count_cond
+                    print(f"[DEBUG] drowsy={drowsy_cond}, elapsed={elapsed:.2f}s")
+
+                    drowsiness_alarm = elapsed >= 5
+                if not drowsy_cond:
+                    count_cond = None
                     drowsiness_alarm = False
-                if warning:
-                    if obstacle_time is None:
-                        obstacle_time = time.monotonic()
-
-                    if not obstacle_alarm and time.monotonic() - obstacle_time >= 5:
-                        obstacle_alarm = True
+                    drowsy_logged = False
+                if drowsiness_alarm and not drowsy_logged:
+                    EventLog(
+                        "Drowsiness Alarm",
+                        year, month, day, hour, minute, second
+                    )
+                    drowsy_logged = True
+                if warning and not obstacle_logged:
+                    EventLog(
+                        "Obstacle Alarm",
+                        year, month, day, hour, minute, second
+                    )
+                    obstacle_logged = True
+                elif not warning:
+                    obstacle_logged = False
+                if drowsiness_alarm or warning:
+                    buzzer.on()
                 else:
-                    obstacle_time = None
-                    obstacle_alarm = False
-                if drowsiness_alarm or obstacle_alarm:
-                    if not buzzer_active and not buzzer_timeout:
-                        buzzer.on()
-                        buzzer_active = True
-                        buzzer_time = time.monotonic()
-                    if (
-                        buzzer_active
-                        and buzzer_time is not None
-                        and time.monotonic() - buzzer_time >= 10
-                    ):
-                        buzzer.off()
-                        buzzer_active = False
-                        buzzer_timeout = True
-
-                        if drowsiness_alarm:
-                            EventLog("Drowsy",year, month, day, hour, minute, second)
-                        if obstacle_alarm:
-                            EventLog("Obstacle",year, month, day, hour, minute, second)
-                            buzzer_time = None
-                else:
-                    # Danger condition has completely disappeared
-                    if buzzer_active:
-                        buzzer.off()
-
-                    buzzer_active = False
-                    buzzer_timeout = False
-                    buzzer_time = None
-
-                    drowsiness_alarm = False
-                    obstacle_alarm = False
-                    drowsiness_time = None
-                    obstacle_time = None
+                    buzzer.off()
+                if DEBUG and second % 3 == 0:
+                    print(
+                        f"[ALARM] drowsy={drowsiness_alarm}, "
+                        f"obstacle={warning}, "
+                        f"buzzer={'ON' if drowsiness_alarm or warning else 'OFF'}"
+                    )
                 with shared_data_lock:
                     shared_data.update({
                         "lat": lat,

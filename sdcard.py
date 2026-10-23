@@ -30,3 +30,4 @@ def EventLog(event_type, year, month, day, hh, mm, ss):
 
     with open(path, "a", encoding="utf-8") as f:
         f.write(f"[{hh:02d}:{mm:02d}:{ss:02d}],Event:{event_type}\n")
+        
