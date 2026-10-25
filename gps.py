@@ -1,11 +1,12 @@
 import serial
 import pynmea2
+
 ser = serial.Serial('/dev/serial0', baudrate=9600, timeout=1)
 
-lat, lon, speed,speed_sum,speed_count = None,None,0,0,0
+lat, lon, speed, speed_sum, speed_count = None, None, 0, 0, 0
 
 def GPSread():
-    global lat, lon, speed, speed_sum,speed_count
+    global lat, lon, speed, speed_sum, speed_count
     try:
         line = ser.readline().decode("ascii", errors='ignore').strip()
         if line.startswith("$GPGGA") or line.startswith("$GNGGA"):
@@ -26,3 +27,7 @@ def GPSread():
     except pynmea2.ParseError as e:
         print(f"GPS Parse Error: {e}")
         return lat, lon, speed
+
+if __name__ == "__main__":
+    while True:
+        print(GPSread())
