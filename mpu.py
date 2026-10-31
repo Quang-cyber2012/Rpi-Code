@@ -36,7 +36,7 @@ def MPUread():
         return None, None
 if __name__ == "__main__":
    print(MPUread())
-   print(MPUread())
-   print(MPUread())
-   print(MPUread())
-   print(MPUread())
+   # print(MPUread())
+   # print(MPUread())
+   # print(MPUread())
+   # print(MPUread())
