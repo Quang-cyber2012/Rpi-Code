@@ -1,4 +1,4 @@
-DEBUG = False
+DEBUG = True
 import math
 import os
 import time
@@ -113,7 +113,7 @@ def main():
     obstacle_logged = False
     while True:
         try:
-                if button.is_pressed:
+                if button.is_held:
                     PiOff()
                 lat, lon, speed = GPSread()
                 accel, gyro = MPUread()
